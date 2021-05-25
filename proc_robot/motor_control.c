@@ -33,27 +33,9 @@ Branchements sur LPC2368 :
 #define V_MOT_D PWM1MR1
 #define V_MOT_G PWM1MR2
 
-char avant = 0;
-char arriere = 0;
-
-char right = 0;
-char left = 0;
-
 volatile unsigned int ADC0 = 0;
 volatile unsigned int ADC1 = 0;
 volatile unsigned int ADC2 = 0;
-
-/*
-void directionUpdate(char av, char ar){
-    if(av && ar){
-        right = 1;
-        left = 0;
-    }
-    else if(!av && !ar){
-        right = 0;
-        left = 1;
-    }
-}*/
 
 void speedAdapt(char r, char l){
     if(r){
@@ -121,14 +103,13 @@ void initADC(){
 }
 
 void isrT0()__irq{
+    char right, left;
     AD0CR |= 1 << 16;
-	avant = XOR_AVANT;
-    arriere = XOR_ARRIERE;
-    if(avant && arriere){
+    if(XOR_AVANT && XOR_ARRIERE){
         right = 1;
         left = 0;
     }
-    else if(!avant && !arriere){
+    else if(!(XOR_AVANT) && !(XOR_ARRIERE)){
         right = 0;
         left = 1;
     }
