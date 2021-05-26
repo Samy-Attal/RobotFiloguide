@@ -1,4 +1,4 @@
-/* ver 24 05 2021 
+/* 
 Projet Robot Filoguidé 
 Processeur ROBOT
 Programme de test du robot incluant la gestion des capteurs (bobines) 
@@ -6,10 +6,11 @@ ainsi que le controle des moteurs
 
 Branchements sur LPC2368 : 
         - fil d'arret coup de poing :   P2.10 (EXT INT 0)        
-        - dephase droite :              P2.0  (GPIO)
-        - dephase gauche :              P2.1  (GPIO)
+        - dephase avant :               P2.0  (GPIO)
+        - dephase arriere :             P2.1  (GPIO)
         - moteur droit :                P1.18 (PWM)
         - moteur gauche :               P1.20 (PWM)
+        - ADC0 :                        P0.23 (ADC)
         
 */
 
@@ -33,6 +34,8 @@ Branchements sur LPC2368 :
 #define V_MOT_D PWM1MR1
 #define V_MOT_G PWM1MR2
 
+char stop = 0;
+
 volatile unsigned int ADC0 = 0;
 volatile unsigned int ADC1 = 0;
 volatile unsigned int ADC2 = 0;
@@ -55,8 +58,9 @@ void speedAdapt(char r, char l){
 
 // arret coup de poing
 void isrArret()__irq{
-    PWM1MR1 = 0;    
-    PWM1MR2 = 0;
+    stop = 1;
+    V_MOT_D = 0;    
+    V_MOT_G = 0;
     PWM1LER = 0x3F;
     EXTINT = 0x1;
     VICVectAddr = 0;
@@ -117,13 +121,14 @@ void isrT0()__irq{
         right = 0;
         left = 0;
     }
-    speedAdapt(right, left);
+    if(!stop)
+        speedAdapt(right, left);
     T0IR = 0x3F;
     VICVectAddr = 0;
 }
 
 void initT0(){
-    T0MR0 = 11999;                          //FCLK/FREQ_T1;
+    T0MR0 = 11999;                          // FCLK/FREQ_T1;
 	T0MCR = 0x3;                            // reset + interrupt
     T0IR = 0x1;			
     VICVectAddr4 = (unsigned long)isrT0;        
