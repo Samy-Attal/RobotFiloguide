@@ -9,9 +9,9 @@ Branchements sur LPC2368 :
         - BP mise en marche :           P2.2  (GPIO)       
         - dephase avant :               P2.0  (GPIO)
         - dephase arriere :             P2.1  (GPIO)
+        - amplitude bobine :            P0.23 (ADC)
         - moteur droit :                P1.18 (PWM)
         - moteur gauche :               P1.20 (PWM)
-        - ADC0 :                        P0.23 (ADC)
         
 */
 
@@ -28,6 +28,7 @@ Branchements sur LPC2368 :
 #define V_MIN 25
 
 #define ADC_MAX 0x3FF   // 3.3V
+
 #define ADC_MIN 0x136   // 1.0V
 
 #define XOR_AVANT FIO2PIN&0x1
@@ -39,6 +40,9 @@ Branchements sur LPC2368 :
 #define CONTINUE FIO2PIN&0x4
 
 char stop = 0;
+
+char right = 0;
+char left = 0;
 
 volatile unsigned int ADC0 = 0;
 volatile unsigned int ADC1 = 0;
@@ -115,13 +119,12 @@ void initADC(){
 }
 
 void isrT0()__irq{
-    char right, left;
     AD0CR |= 1 << 16;
-    if(XOR_AVANT && XOR_ARRIERE){
+    if(XOR_AVANT && !(XOR_ARRIERE)){
         right = 1;
         left = 0;
     }
-    else if(!(XOR_AVANT) && !(XOR_ARRIERE)){
+    else if(!(XOR_AVANT) && XOR_ARRIERE){
         right = 0;
         left = 1;
     }
