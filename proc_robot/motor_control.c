@@ -5,7 +5,8 @@ Programme de test du robot incluant la gestion des capteurs (bobines)
 ainsi que le controle des moteurs 
 
 Branchements sur LPC2368 : 
-        - fil d'arret coup de poing :   P2.10 (EXT INT 0)        
+        - fil d'arret coup de poing :   P2.10 (EXT INT 0) 
+        - BP mise en marche :           P2.2  (GPIO)       
         - dephase avant :               P2.0  (GPIO)
         - dephase arriere :             P2.1  (GPIO)
         - moteur droit :                P1.18 (PWM)
@@ -26,13 +27,16 @@ Branchements sur LPC2368 :
 #define V_MAX 80
 #define V_MIN 25
 
-#define ADC_MAX 0x3FF
+#define ADC_MAX 0x3FF   // 3.3V
+#define ADC_MIN 0x136   // 1.0V
 
 #define XOR_AVANT FIO2PIN&0x1
 #define XOR_ARRIERE FIO2PIN&0x2
 
 #define V_MOT_D PWM1MR1
 #define V_MOT_G PWM1MR2
+
+#define CONTINUE FIO2PIN&0x4
 
 char stop = 0;
 
@@ -43,17 +47,21 @@ volatile unsigned int ADC2 = 0;
 void speedAdapt(char r, char l){
     if(r){
         V_MOT_D = (V_MAX * ADC0) / ADC_MAX; 
-        V_MOT_G = V_MIN;
+        V_MOT_G = 100 - V_MOT_D;
+        if(V_MOT_D < V_MOT_G)
+            V_MOT_D = V_MIN + V_MIN/2;
     }
     else if(l){
-        V_MOT_D = V_MIN;
         V_MOT_G = (V_MAX * ADC0) / ADC_MAX;
+        V_MOT_D = 100 - V_MOT_G;
+        if(V_MOT_D > V_MOT_G)
+            V_MOT_G = V_MIN + V_MIN/2;
     }
     else{
         V_MOT_D = (V_MAX * ADC0) / ADC_MAX;
         V_MOT_G = (V_MAX * ADC0) / ADC_MAX;
     }
-    PWM1LER = 0X3F;
+    PWM1LER = 0x3F;
 }
 
 // arret coup de poing
@@ -121,6 +129,9 @@ void isrT0()__irq{
         right = 0;
         left = 0;
     }
+
+    if(CONTINUE)
+        stop = 0;
     if(!stop)
         speedAdapt(right, left);
     T0IR = 0x3F;
@@ -135,7 +146,6 @@ void initT0(){
 	VICIntEnable = 1 << 4;
     T0TCR = 0x1;
 }
-
 
 void initLPC(){
     SCS = 1;
