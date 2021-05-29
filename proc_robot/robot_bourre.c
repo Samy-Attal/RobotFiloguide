@@ -1,8 +1,7 @@
 /*
 Projet Robot Filoguidé version "bourré" FONCTIONNELLE
-controle des moteurs en fonction des capteurs bobine
+controle des moteurs en fonction des capteurs bobines
 interverti la vitesse des moteurs en fonction de sa position 
-
 Branchements sur le LPC2368
         - arret coup de poing :             P2.10   (EXTINT)
         - bp mise en marche :               P2.2    (GPIO)
@@ -25,9 +24,9 @@ Branchements sur le LPC2368
 #define V_MAX 80
 #define V_MIN 25
 
-#define ADC_MAX 0x3A2   // 3.3V
+#define ADC_MAX 0x3A2   // 3.0V 
 #define ADC_MIN 0x136   // 1.0V
-
+                        // peuvent être changées pour modifier la sensibilité
 #define XOR_AVANT FIO2PIN&0x1
 #define XOR_ARRIERE FIO2PIN&0x2
 
@@ -66,16 +65,19 @@ void speedAdapt(char r, char l){
 }
 
 void speedSwap(char r, char l){
-		if(r){
-				V_MOT_D = 80;
-				V_MOT_G = 50;
-		}
-		else if(l){
-				V_MOT_D = 50;
-				V_MOT_G = 80;
-		}
-		PWM1LER = 0x3F;
-
+	if(r){
+		V_MOT_D = 80;
+		V_MOT_G = 50;
+	}
+	else if(l){
+		V_MOT_D = 50;
+		V_MOT_G = 80;
+	}
+	else{
+		V_MOT_D = 80;
+		V_MOT_G = 80;
+	}
+	PWM1LER = 0x3F;
 }
 
 // arret coup de poing
@@ -143,7 +145,6 @@ void isrT0()__irq{
         right = 0;
         left = 0;
     }
-
     if(CONTINUE)
         stop = 0;
     if(!stop)
@@ -164,7 +165,8 @@ void initT0(){
 
 void initLPC(){
     SCS = 1;
-    initArret();
+	PINMODE4 |= 0x3F;//(0x3)|(0x3<<2);				// pull down
+	initArret();
     initADC();
     initT0();
     initPWM();
