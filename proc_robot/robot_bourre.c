@@ -155,8 +155,8 @@ void isrT0()__irq{
 }
 
 void initT0(){
-    T0MR0 = 11999;                          // FCLK/FREQ_T1;
-	T0MCR = 0x3;                            // reset + interrupt
+    T0MR0 = 11999;      // FCLK/FREQ_T1;
+	T0MCR = 0x3;        // reset + interrupt
     T0IR = 0x1;			
     VICVectAddr4 = (unsigned long)isrT0;        
 	VICIntEnable = 1 << 4;
@@ -165,7 +165,7 @@ void initT0(){
 
 void initLPC(){
     SCS = 1;
-	PINMODE4 |= 0x3F;//(0x3)|(0x3<<2);				// pull down
+	PINMODE4 |= 0x3F;   // pull down resistors on 2.0 2.1 and 2.2
 	initArret();
     initADC();
     initT0();
