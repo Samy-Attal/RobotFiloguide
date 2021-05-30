@@ -2,37 +2,50 @@
 Projet Robot Filoguidé 
 Module telemètre ultrason 
 
-Branchements sur LPC2368 :
-    TRIG_TELEM :        P3.0    (GPIO)
-    LED_OBSTACLE :      P3.1    (GPIO)
+roles des timers :
+        - Timer 1 : permet de generer les impulsions du TRIG
+        - Timer 2 : compte une seconde afin de relancer les mesures
+        - Timer 3 : s'interrompt lors de la reception de l'echo et caclcule la distance
+        
+Branchements sur LPC2368 :    
+    LED_OBSTACLE :      P2.9    (GPIO)
+    TRIG_TELEM :        P2.8    (GPIO)
     ECHO_TELEM :        P2.11   (EXTINT)
-*/
-
+    Switch0 :           P2.6    (GPIO)
+    Switch1 :           P2.7    (GPIO)
+*/ 
 
 #include "LPC23xx.h"
 
 #define FCLK 12000000
 #define FULTRASON 40000
 
-#define DISTANCE_MAX 272           // Hz => (2.5 m) : 1/((2.5/340)/2) 
-    
+#define DISTANCE_MAX 272                // Hz => (2.5 m) : 1/((2.5/340)/2) 
+
+#define DISTANCE_MIN 13600              // Hz => (5 cm)  
+
+#define DISTANCE_OBSTACLE 0.15          // en m
+#define FOBSTACLE 1/(DISTANCE_OBSTACLE/340)
+
 #define VITESSE_SON 340
 
-#define SW_CONFIG0 FIO2PIN&0x4      // 2.2
-#define SW_CONFIG1 FIO2PIN&0x8      // 2.3  
-#define TRIG_TELEM FIO1PIN&(1<<19)  
+#define SW_CONFIG0 FIO2PIN&(1<<6)      // 2.6
+#define SW_CONFIG1 FIO2PIN&(1<<7)      // 2.7  
+#define TRIG_TELEM FIO2PIN&(1<<8)      // 2.8   
 
-int distance = 0;             // cm 
+int distance = 0;                      // cm 
 char obstacle = 0;
 
 int cpt_mes = 0;
 char stop_mes = 0;
 
+char echo = 0;
+
 void initGPIO(){
-    PINSEL6 |= 0x0;             // 3.0 et 3.1 en GPIO
-    FIO3DIR |= 0x3;             // OUT 
-    FIO3CLR |= 0x3;             // clear
+    FIO2DIR |= (1<<8) | (1<<9);         //TRIG TELEM OUT 
+    FIO2CLR |= (1<<8) | (1<<9);         // clear
 }
+
 char switchesConfig(char sw0, char sw1){
     char nb;
     if(!sw0 && !sw1)
@@ -48,18 +61,19 @@ char switchesConfig(char sw0, char sw1){
 
 void isrTrig()__irq{
     char nb_mes = switchesConfig(SW_CONFIG0, SW_CONFIG1);
-    FIO3PIN ^= 0x1;
-    if(FIO3PIN&0x1)
+    FIO2PIN ^= 1 << 8;
+    if(TRIG_TELEM)
         cpt_mes++;
-    if(cpt_mes == 1)
+    if(cpt_mes == 1){
         T3TCR = 1;
+        echo = 0;
+    }
     if(cpt_mes == nb_mes){
         cpt_mes = 0;
         stop_mes = 1;
         T1TCR = 0;
-        FIO3CLR |= 0x1;
+        FIO2CLR |= 1 << 8;
     }
-
     T1IR = 0x1;
     VICVectAddr = 0; 
 }
@@ -87,10 +101,12 @@ void initT2(){
     T2TCR = 1;
 }
 
+// duree entre emission et echo
 void isrDuree()__irq{
-    obstacle = 0;
-    FIO3CLR |= 0x2;
-    distance = 250;             // voire + echo non recu
+    if(!echo){
+        obstacle = 0;
+        FIO2CLR |= 1 << 9;
+    }
     T3IR = 1;
     VICVectAddr = 0;
 }
@@ -103,14 +119,16 @@ void initDuree(){
 }
 
 void isrEcho()__irq{
-    T3TCR = 0;              // stop timer 3
-    distance = 100*(VITESSE_SON*T3TC)/2;
-    if(distance < 15){      // < a 15 cm 
-        obstacle = 1;
-        FIO3SET |= 0x2;
-    } else {
-        obstacle = 0;
-        FIO3CLR |= 0x2;
+    if(!stop_mes){
+        T3TCR = 0;              // stop timer 3
+        echo = 1;
+        if(T3TC < FCLK/FOBSTACLE){      // < a 15 cm 
+            obstacle = 1;
+            FIO2SET |= 1 << 9;
+        } else {
+            obstacle = 0;
+            FIO2CLR |= 1 << 9;
+        }
     }
     EXTINT = 0x2;
     VICVectAddr = 0;
