@@ -239,6 +239,6 @@ int main(void){
         }
         setMotors(etat);
         stopMotors(etat);
-        setLeds(etat);
+        setRGB(etat);
     }
 }
